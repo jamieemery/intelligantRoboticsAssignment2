@@ -106,7 +106,7 @@ class PFLocaliser(PFLocaliserBase):
 
         for i in range (0,randomGauss):
             gaussianRandomNumX.append(random.gauss(0,1))
-        gaussianRandomNumY.append(random.gauss(0,1))
+            gaussianRandomNumY.append(random.gauss(0,1))
 
         for p in self.particlecloud.poses:
             particleWeights.append(self.sensor_model.get_weight(scan, p))

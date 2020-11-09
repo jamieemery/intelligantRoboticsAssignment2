@@ -18,11 +18,67 @@ import math
 import random
 import numpy as np
 from util import rotateQuaternion, getHeading
-import numpy as np
 from threading import Lock
 import time
 import sensor_model
 PI_OVER_TWO = math.pi/2 # For faster calculations
+
+# import math functions
+from math import *
+import matplotlib.pyplot as plt
+
+# redefine variables as arrays to implement a 2D Kalman Filter instead of a 1D
+# X and Y position means for the location
+# Initialisation of means at 0
+mu_x = 0
+mu_y = 0
+mu = [[mu_x], [mu_y]]
+
+"""Create a covariance matrix representing the Gaussian spread, 
+   measuring the uncertainty of the particles spread near the exact real location,
+   they have to be initialised (at the PoseArray() initial location or the Robot's
+   location or just random values and experiment which works best??), bear in mind that
+   the diagonal terms(sigma_x2 and sigma_y2) represent the variance 
+   and the off-diagonal terms (sigma_xy and sigma yx) represent the correlation terms,
+   which must be symmetrical and equivalent.
+   The terms for variances can be set to different values, but that implies more
+   uncertainty for the X or Y xis, depending on which value is lower.
+   """
+sigma_x2 = 1 #variance for x
+sigma_xy = 0 #---correlation for xy 
+sigma_yx = 0 #---and yx
+sigma_y2 = 1 #variance for y
+sigma2 = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
+
+# gaussian function for the 2D Kalman Filter
+def gauss_f(mu, sigma2, x):
+    ''' gauss_f takes in a mean and squared variance, and an input x
+       and returns the gaussian value.'''
+    coefficient = 1.0 / sqrt(2.0 * pi *sigma2)
+    exponential = exp(-0.5 * (x-mu) ** 2 / sigma2)
+    return coefficient * exponential
+
+
+# the update function
+def update(mean1, var1, mean2, var2):
+    ''' This function takes in two means and two squared variance terms,
+        and returns updated gaussian parameters.'''
+    # Calculate the new parameters
+    new_mean = (var2*mean1 + var1*mean2)/(var2+var1)
+    new_var = 1/(1/var2 + 1/var1)
+    
+    return [new_mean, new_var]
+
+
+# the motion update/predict function
+def predict(mean1, var1, mean2, var2):
+    ''' This function takes in two means and two squared variance terms,
+        and returns updated gaussian parameters, after motion.'''
+    # Calculate the new parameters
+    new_mean = mean1 + mean2
+    new_var = var1 + var2
+    
+    return [new_mean, new_var]
 
 class PFLocaliserBase(object):
 

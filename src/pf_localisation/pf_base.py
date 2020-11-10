@@ -51,6 +51,15 @@ sigma_y2 = 1 #variance for y
 sigma2 = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
 sigma2_inv = np.inv(sigma2) #inverse matrix of the covariance matrix
 
+global x_signal # our signal values
+global u_control # control signal
+global noise # processed noise
+global z # measurement values
+global v # measurement noise
+
+x_signal = A*x_signal + B*u_control + noise
+z = H*x_signal + v
+
 # gaussian function for the 2D Kalman Filter
 def gauss_f(mu, sigma2, x):
     dist_from_mean = (x-mu) #distance from the mean

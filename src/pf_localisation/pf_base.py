@@ -49,13 +49,16 @@ sigma_xy = 0 #---correlation for xy
 sigma_yx = 0 #---and yx
 sigma_y2 = 1 #variance for y
 sigma2 = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
+sigma2_inv = np.inv(sigma2) #inverse matrix of the covariance matrix
 
 # gaussian function for the 2D Kalman Filter
 def gauss_f(mu, sigma2, x):
+    dist_from_mean = (x-mu) #distance from the mean
+    dist_from_mean_transposed = dist_from_mean.transpose()
     ''' gauss_f takes in a mean and squared variance, and an input x
        and returns the gaussian value.'''
-    coefficient = 1.0 / sqrt(2.0 * pi *sigma2)
-    exponential = exp(-0.5 * (x-mu) ** 2 / sigma2)
+    coefficient = 1.0 / (2.0 * pi *sqrt(sigma2))
+    exponential = exp(-0.5 * dist_from_mean_transposed*sigma2_inv*dist_from_mean)
     return coefficient * exponential
 
 
@@ -263,6 +266,9 @@ class PFLocaliserBase(object):
             y = odom.pose.pose.position.y
             new_heading = getHeading(odom.pose.pose.orientation)
             
+            mu_x = x
+            mu_y = y
+            mu = [[mu_x], [mu_y]]
             # ----- On our first run, the incoming translations may not be equal to 
             # ----- zero, so set them appropriately
             if not self.odom_initialised:
@@ -316,9 +322,34 @@ class PFLocaliserBase(object):
                                 (rnd * travel_x * self.ODOM_TRANSLATION_NOISE))
                 p.position.y = (p.position.y + travel_y +
                                 (rnd * travel_y * self.ODOM_DRIFT_NOISE))
+                # measurements for mu and motions, U
+                measurements = [5., 6., 7., 9., 10.]
+                motions = [[travel_x],[travel_y]]
+
+                # initial parameters
+                measurement_sig = 4. # measurement error
+                motion_sig = 2. # motion error
+                mu = 0. # initial estimate for the location
+                sig = 10000. # certainty of the localisation
+
+
+            # Loop through all measurements/motions
+            # this code assumes measurements and motions have the same length
+            # so their updates can be performed in pairs
+            for n in range(len(measurements)):
+                # measurement update, with uncertainty
+                mu, sig = update(mu, sig, measurements[n], measurement_sig)
+                print('Update: [{}, {}]'.format(mu, sig))
+                # motion update, with uncertainty
+                mu, sig = predict(mu, sig, motions[n], motion_sig)
+                print('Predict: [{}, {}]'.format(mu, sig))
+
+            # print the final, resultant mu, sig
+            print('\n')
+            print('Final result: [{}, {}]'.format(mu, sig))
     
         return time.time() - t
-    
+
     def set_initial_pose(self, pose):
         """ Initialise filter with start pose """
         self.estimatedpose.pose = pose.pose

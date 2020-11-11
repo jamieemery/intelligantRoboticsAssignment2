@@ -153,6 +153,35 @@ class PFLocaliser(PFLocaliserBase):
 
         return self.particlecloud
 
+    def create_C(self, predictedMut, predictedLaserScans):
+        # Ct = numpy.zeros((2, 500))
+        Ct = predictedLaserScans * numpy.linalg.inv(predictedMut)
+
+    #    iterator = 0
+        #for j in predictedLaserScans:
+        #    ctx = j / predictedMut[0]
+        #    cty = j / predictedMut[1]
+        #    Ct[0][iterator] = ctx
+        #    Ct[1][iterator] = cty
+        #    iterator += 1
+        return Ct
+
+    def createPredictedScan(self):
+        predictedLaserScans = numpy.zeros(1, len(self.sensor_model.reading_points))
+        for i, obs_bearing in self.sensor_model.reading_points:
+
+            # ----- Predict the scan according to the map
+            map_range = self.sensor_model.calc_map_range(predictedMut[0], predictedMut[1],
+                                     getHeading(self.particlecloud.poses[0].orientation) + obs_bearing)
+            predictedLaserScans[i] = map_range
+        return predictedLaserScans
+
+    def createActualScan(self, scan):
+        actualLaserScans = numpy.zeros(1, len(scan.ranges))
+        for scan in scan.ranges:
+            actualLaserScans[i] = scan
+        return actualLaserScans
+
     def update_particle_cloud(self, scan):
         """
         This should use the supplied laser scan to update the current
@@ -167,26 +196,17 @@ class PFLocaliser(PFLocaliserBase):
         Initialise arrays for the new particle cloud,
         particle weights and cummulative weights
         """
-        predictedMut =  numpy.zeros((1,2))
+        predictedMut = numpy.zeros((1,2))
         predictedMut[0] = self.particlecloud.poses[0].position.x
         predictedMut[1] = self.particlecloud.poses[0].position.y
-        predictedLaserScans = numpy.zeros(1, len(self.sensor_model.reading_points))
-        for i, obs_bearing in self.sensor_model.reading_points:
+        predictedScan = self.createPredictedScan()
 
-            # ----- Predict the scan according to the map
-            map_range = self.sensor_model.calc_map_range(predictedMut[0], predictedMut[1],
-                                     getHeading(self.particlecloud.poses[0].orientation) + obs_bearing)
-            predictedLaserScans[i] = map_range
+        Ct = self.create_C(predictedMut,predictedScan)
+        zt = self.createActualScan(scan.ranges)
+        Kt = predictedSig * np.transpose(Ct) * numpy.linalg.inv((Ct*predictedSig*np.transpose(Ct) + noise))
 
-        # Ct = numpy.zeros((2, 500))
-        Ct = predictedLaserScans * numpy.linalg.inv(predictedMut)
-    #    iterator = 0
-        #for j in predictedLaserScans:
-        #    ctx = j / predictedMut[0]
-        #    cty = j / predictedMut[1]
-        #    Ct[0][iterator] = ctx
-        #    Ct[1][iterator] = cty
-        #    iterator += 1
+        actualMut = predictedMut + Kt*(zt - predictedScan)
+        pass
 
 
     def estimate_pose(self):

@@ -14,11 +14,6 @@ from time import time
 from math import *
 import matplotlib.pyplot as plt
 
-# redefine variables as arrays to implement a 2D Kalman Filter instead of a 1D
-# X and Y position means for the location
-# Initialisation of means at 0
-
-
 """Create a covariance matrix representing the Gaussian spread, 
    measuring the uncertainty of the particles spread near the exact real location,
    they have to be initialised (at the PoseArray() initial location or the Robot's
@@ -29,12 +24,13 @@ import matplotlib.pyplot as plt
    The terms for variances can be set to different values, but that implies more
    uncertainty for the X or Y xis, depending on which value is lower.
 """
+
 sigma_x2 = 1 #variance for x
 sigma_xy = 0 #---correlation for xy 
 sigma_yx = 0 #---and yx
 sigma_y2 = 1 #variance for y
-sigma2 = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
-sigma2_inv = np.linalg.inv(sigma2) #inverse matrix of the covariance matrix
+sigma = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
+sigma_inv = np.linalg.inv(sigma) #inverse matrix of the covariance matrix
 
 #global x_signal # our signal values
 #global u_control # control signal
@@ -60,13 +56,13 @@ class PFLocaliser(PFLocaliserBase):
 
 
     # gaussian function for the 2D Kalman Filter
-    def gauss_f(mu, sigma2, x):
+    def gauss_f(mu, sigma, x):
         dist_from_mean = (x-mu) #distance from the mean
         dist_from_mean_transposed = numpy.transpose(dist_from_mean)
         ''' gauss_f takes in a mean and squared variance, and an input x
         and returns the gaussian value.'''
-        coefficient = 1.0 / (2.0 * pi *sqrt(sigma2))
-        exponential = exp(-0.5 * dist_from_mean_transposed*sigma2_inv*dist_from_mean)
+        coefficient = 1.0 / (2.0 * math.pi *sqrt(abs(sigma)))
+        exponential = exp(-0.5 * dist_from_mean_transposed*sigma_inv*dist_from_mean)
         return coefficient * exponential
 
 
@@ -183,30 +179,25 @@ class PFLocaliser(PFLocaliserBase):
         return actualLaserScans
 
     def update_particle_cloud(self, scan):
-        """
-        This should use the supplied laser scan to update the current
-        particle cloud. i.e. self.particlecloud should be updated.
 
-        :Args:
-            | scan (sensor_msgs.msg.LaserScan): laser scan to use for update
-
-         """
-
-        """
-        Initialise arrays for the new particle cloud,
-        particle weights and cummulative weights
-        """
         predictedMut = numpy.zeros((1,2))
         predictedMut[0] = self.particlecloud.poses[0].position.x
         predictedMut[1] = self.particlecloud.poses[0].position.y
         predictedScan = self.createPredictedScan()
 
+        Rt = [[10,0],[0,10]]
+
+        predictedSigma = sigma + Rt
+
         Ct = self.create_C(predictedMut,predictedScan)
         zt = self.createActualScan(scan.ranges)
-        Kt = predictedSig * np.transpose(Ct) * numpy.linalg.inv((Ct*predictedSig*np.transpose(Ct) + noise))
+        Kt = predictedSigma * np.transpose(Ct) * numpy.linalg.inv((Ct*predictedSigma*np.transpose(Ct) + noise))
+
+        s = (Kt*Ct).shape           # gives for example (48, 27)
+        I = numpy.identity(s)       # identity matrix with size of the matrix (Kt*Ct)
 
         actualMut = predictedMut + Kt*(zt - predictedScan)
-        pass
+        actualSigma = (I-Kt*Ct)*predictedSigma
 
 
     def estimate_pose(self):

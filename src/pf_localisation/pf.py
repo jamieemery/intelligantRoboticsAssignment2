@@ -10,6 +10,41 @@ import random
 
 from time import time
 
+# import math functions
+from math import *
+import matplotlib.pyplot as plt
+
+# redefine variables as arrays to implement a 2D Kalman Filter instead of a 1D
+# X and Y position means for the location
+# Initialisation of means at 0
+
+
+"""Create a covariance matrix representing the Gaussian spread, 
+   measuring the uncertainty of the particles spread near the exact real location,
+   they have to be initialised (at the PoseArray() initial location or the Robot's
+   location or just random values and experiment which works best??), bear in mind that
+   the diagonal terms(sigma_x2 and sigma_y2) represent the variance 
+   and the off-diagonal terms (sigma_xy and sigma yx) represent the correlation terms,
+   which must be symmetrical and equivalent.
+   The terms for variances can be set to different values, but that implies more
+   uncertainty for the X or Y xis, depending on which value is lower.
+"""
+sigma_x2 = 1 #variance for x
+sigma_xy = 0 #---correlation for xy 
+sigma_yx = 0 #---and yx
+sigma_y2 = 1 #variance for y
+sigma2 = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
+sigma2_inv = np.linalg.inv(sigma2) #inverse matrix of the covariance matrix
+
+#global x_signal # our signal values
+#global u_control # control signal
+#global noise # processed noise
+#global z # measurement values
+#global v # measurement noise
+
+#x_signal = A*x_signal + B*u_control + noise
+#z = H*x_signal + v
+
 
 class PFLocaliser(PFLocaliserBase):
 
@@ -21,6 +56,40 @@ class PFLocaliser(PFLocaliserBase):
 
         # ----- Sensor model parameters
         self.NUMBER_PREDICTED_READINGS = 20  # Number of readings to predict
+
+
+
+    # gaussian function for the 2D Kalman Filter
+    def gauss_f(mu, sigma2, x):
+        dist_from_mean = (x-mu) #distance from the mean
+        dist_from_mean_transposed = numpy.transpose(dist_from_mean)
+        ''' gauss_f takes in a mean and squared variance, and an input x
+        and returns the gaussian value.'''
+        coefficient = 1.0 / (2.0 * pi *sqrt(sigma2))
+        exponential = exp(-0.5 * dist_from_mean_transposed*sigma2_inv*dist_from_mean)
+        return coefficient * exponential
+
+
+    # the update function
+    def change_mean_sigma(mean1, sigma1, mean2, sigma2):
+       ''' This function takes in two means and two squared variance terms,
+        and returns updated gaussian parameters.'''
+        # Calculate the new parameters
+        new_mean = (sigma2*mean1 + sigma1*mean2)/(sigma2+sigma1)
+        new_sigma = 1/(1/sigma2 + 1/sigma1)
+    
+        return [new_mean, new_sigma]
+
+
+    # the motion update/predict function
+    #def predict(mean1, sigma1, mean2, sigma2):
+        ''' This function takes in two means and two squared variance terms,
+        and returns updated gaussian parameters, after motion.'''
+        # Calculate the new parameters
+        #new_mean = mean1 + mean2
+        #new_sigma = sigma1 + sigma2
+    
+        #return [new_mean, new_sigma]
 
     def initialise_particle_cloud(self, initialpose):
         """
@@ -37,45 +106,50 @@ class PFLocaliser(PFLocaliserBase):
             | (geometry_msgs.msg.PoseArray) poses of the particles
         """
         # ----- Initialize the particle cloud as an empty array
-        self.particlecloud = PoseArray()
+        #self.particlecloud = PoseArray()
 
         """Create the noise to multiply by the random Gaussian number that will
         get added to each of the Poses, that are set to a random position
         and orientation around the initial pose"""
-        sensorSigma=3 #variance
-        sensorMu=0 #mean
-        noise=sensorSigma * numpy.random.randn() + sensorMu
+        #sensorSigma=3 #variance
+        #sensorMu=0 #mean
+        #noise=sensorSigma * numpy.random.randn() + sensorMu
 
         """Create a range for the ammount of random Gaussian values to generate """
-        randomGauss = 10*self.NUMBER_PREDICTED_READINGS
+        #randomGauss = 10*self.NUMBER_PREDICTED_READINGS
 
-        gaussianRandomNumX = []
-        gaussianRandomNumY = []
-        randomYawArray = []
+        #gaussianRandomNumX = []
+        #gaussianRandomNumY = []
+        #randomYawArray = []
 
-        for i in range (0,randomGauss):
-            gaussianRandomNumX.append(random.gauss(0,1))
-            gaussianRandomNumY.append(random.gauss(0,1))
-            x=random.randint(1,180)
-            randomYaw=(math.pi/x)
-            randomYawArray.append(randomYaw)
+        #for i in range (0,randomGauss):
+            #gaussianRandomNumX.append(random.gauss(0,1))
+            #gaussianRandomNumY.append(random.gauss(0,1))
+            #x=random.randint(1,180)
+            #randomYaw=(math.pi/x)
+            #randomYawArray.append(randomYaw)
 
-        iterator = 0
+        #iterator = 0
 
         """
 	    Set the particles to a random position and orientation around the initial pose
         """
-        particleNumber = 10**2 # 10**3 # 10**4 # 10**5 experiment with different ammounts of particles
+        #particleNumber = 10**2 # 10**3 # 10**4 # 10**5 experiment with different ammounts of particles
 
-        while iterator < particleNumber:
-            particle = Pose()
-            particle.position.x = initialpose.pose.pose.position.x + (gaussianRandomNumX[iterator] * noise)
-            particle.position.y = initialpose.pose.pose.position.y + (gaussianRandomNumY[iterator] * noise)
-            particle.position.z = initialpose.pose.pose.position.z
-            particle.orientation = rotateQuaternion(initialpose.pose.pose.orientation, randomYawArray[iterator])
+        #while iterator < particleNumber:
+            #particle = Pose()
+            #particle.position.x = initialpose.pose.pose.position.x + (gaussianRandomNumX[iterator] * noise)
+            #particle.position.y = initialpose.pose.pose.position.y + (gaussianRandomNumY[iterator] * noise)
+            #particle.position.z = initialpose.pose.pose.position.z
+            #particle.orientation = rotateQuaternion(initialpose.pose.pose.orientation, randomYawArray[iterator])
 
-            self.particlecloud.poses.append(particle)
-            iterator += 1
+            #self.particlecloud.poses.append(particle)
+            #iterator += 1
+        
+        mu_x = initialpose.pose.position.x
+        mu_y = initialpose.pose.position.y
+        mu = [[mu_x], [mu_y]]
+        self.particlecloud.pose.position = mu
 
         return self.particlecloud
 
@@ -113,7 +187,7 @@ class PFLocaliser(PFLocaliserBase):
         #    Ct[0][iterator] = ctx
         #    Ct[1][iterator] = cty
         #    iterator += 1
-        pass
+
 
     def estimate_pose(self):
         """

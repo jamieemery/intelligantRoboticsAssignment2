@@ -26,11 +26,11 @@ import matplotlib.pyplot as plt
 """
 
 sigma_x2 = 1 #variance for x
-sigma_xy = 0 #---correlation for xy 
+sigma_xy = 0 #---correlation for xy
 sigma_yx = 0 #---and yx
 sigma_y2 = 1 #variance for y
 sigma = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
-sigma_inv = np.linalg.inv(sigma) #inverse matrix of the covariance matrix
+sigma_inv = numpy.linalg.inv(sigma) #inverse matrix of the covariance matrix
 
 #global x_signal # our signal values
 #global u_control # control signal
@@ -68,12 +68,9 @@ class PFLocaliser(PFLocaliserBase):
 
     # the update function
     def change_mean_sigma(mean1, sigma1, mean2, sigma2):
-       ''' This function takes in two means and two squared variance terms,
-        and returns updated gaussian parameters.'''
-        # Calculate the new parameters
         new_mean = (sigma2*mean1 + sigma1*mean2)/(sigma2+sigma1)
         new_sigma = 1/(1/sigma2 + 1/sigma1)
-    
+
         return [new_mean, new_sigma]
 
 
@@ -128,10 +125,10 @@ class PFLocaliser(PFLocaliserBase):
         #iterator = 0
 
         """
-	    Set the particles to a random position and orientation around the initial pose
+        Set the particles to a random position and orientation around the initial pose
         """
         #particleNumber = 10**2 # 10**3 # 10**4 # 10**5 experiment with different ammounts of particles
-
+        self.particlecloud.poses = []
         #while iterator < particleNumber:
             #particle = Pose()
             #particle.position.x = initialpose.pose.pose.position.x + (gaussianRandomNumX[iterator] * noise)
@@ -141,49 +138,55 @@ class PFLocaliser(PFLocaliserBase):
 
             #self.particlecloud.poses.append(particle)
             #iterator += 1
-        
-        mu_x = initialpose.pose.position.x
-        mu_y = initialpose.pose.position.y
-        mu = [[mu_x], [mu_y]]
-        self.particlecloud.pose.position = mu
+        particle = Pose()
+
+        mu_x = initialpose.pose.pose.position.x
+        mu_y = initialpose.pose.pose.position.y
+        particle.position.x = mu_x
+        particle.position.y = mu_y
+        particle.position.z = initialpose.pose.pose.position.z
+        particle.orientation = initialpose.pose.pose.orientation
+
+        self.particlecloud.poses.append(particle)
 
         return self.particlecloud
 
     def create_C(self, predictedMut, predictedLaserScans):
-        # Ct = numpy.zeros((2, 500))
-        Ct = predictedLaserScans * numpy.linalg.inv(predictedMut)
-
-    #    iterator = 0
-        #for j in predictedLaserScans:
-        #    ctx = j / predictedMut[0]
-        #    cty = j / predictedMut[1]
-        #    Ct[0][iterator] = ctx
-        #    Ct[1][iterator] = cty
-        #    iterator += 1
+        Ct = numpy.zeros((2, 20))
+        #Ct = predictedLaserScans * numpy.linalg.inv(predictedMut)
+        iterator = 0
+        for j in predictedLaserScans[0][:]:
+            ctx = j / predictedMut[0][1]
+            cty = j / predictedMut[0][1]
+            Ct[0][iterator] = ctx
+            Ct[1][iterator] = cty
+            iterator += 1
         return Ct
 
-    def createPredictedScan(self):
-        predictedLaserScans = numpy.zeros(1, len(self.sensor_model.reading_points))
+    def createPredictedScan(self, predictedMut):
+        predictedLaserScans = numpy.zeros((1, len(self.sensor_model.reading_points)))
+        iter = 0
         for i, obs_bearing in self.sensor_model.reading_points:
-
             # ----- Predict the scan according to the map
-            map_range = self.sensor_model.calc_map_range(predictedMut[0], predictedMut[1],
+            map_range = self.sensor_model.calc_map_range(predictedMut[0][0], predictedMut[0][1],
                                      getHeading(self.particlecloud.poses[0].orientation) + obs_bearing)
-            predictedLaserScans[i] = map_range
+            predictedLaserScans[0][iter] = map_range
+            iter += 1
         return predictedLaserScans
 
     def createActualScan(self, scan):
-        actualLaserScans = numpy.zeros(1, len(scan.ranges))
-        for scan in scan.ranges:
-            actualLaserScans[i] = scan
+        actualLaserScans = numpy.zeros((1, len(scan)))
+        iter = 0
+        for i in self.sensor_model.reading_points:
+            actualLaserScans[0][iter] = scan[i[0]]
+            iter += 1
         return actualLaserScans
 
     def update_particle_cloud(self, scan):
-
         predictedMut = numpy.zeros((1,2))
-        predictedMut[0] = self.particlecloud.poses[0].position.x
-        predictedMut[1] = self.particlecloud.poses[0].position.y
-        predictedScan = self.createPredictedScan()
+        predictedMut[0][0] = self.particlecloud.poses[0].position.x
+        predictedMut[0][1] = self.particlecloud.poses[0].position.y
+        predictedScan = self.createPredictedScan(predictedMut)
 
         Rt = [[10,0],[0,10]]
 

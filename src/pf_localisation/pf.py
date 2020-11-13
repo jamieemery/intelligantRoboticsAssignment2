@@ -4,6 +4,9 @@ import math
 import rospy
 import copy
 import numpy
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
 
 from util import rotateQuaternion, getHeading
 import random
@@ -12,13 +15,13 @@ from time import time
 
 # import math functions
 from math import *
-import matplotlib.pyplot as plt
 
-"""Create a covariance matrix representing the Gaussian spread, 
+
+"""Create a covariance matrix representing the Gaussian spread,
    measuring the uncertainty of the particles spread near the exact real location,
    they have to be initialised (at the PoseArray() initial location or the Robot's
    location or just random values and experiment which works best??), bear in mind that
-   the diagonal terms(sigma_x2 and sigma_y2) represent the variance 
+   the diagonal terms(sigma_x2 and sigma_y2) represent the variance
    and the off-diagonal terms (sigma_xy and sigma yx) represent the correlation terms,
    which must be symmetrical and equivalent.
    The terms for variances can be set to different values, but that implies more
@@ -29,7 +32,7 @@ sigma_x2 = 1 #variance for x
 sigma_xy = 0 #---correlation for xy
 sigma_yx = 0 #---and yx
 sigma_y2 = 1 #variance for y
-sigma = [[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]] #covariance matrix
+sigma = numpy.array([[sigma_x2,sigma_xy],[sigma_yx,sigma_y2]]) #covariance matrix
 sigma_inv = numpy.linalg.inv(sigma) #inverse matrix of the covariance matrix
 
 #global x_signal # our signal values
@@ -40,6 +43,18 @@ sigma_inv = numpy.linalg.inv(sigma) #inverse matrix of the covariance matrix
 
 #x_signal = A*x_signal + B*u_control + noise
 #z = H*x_signal + v
+
+# Our 2-dimensional distribution will be over variables X and Y
+N = 60
+X = numpy.linspace(-3, 3, N)
+Y = numpy.linspace(-3, 4, N)
+X, Y = numpy.meshgrid(X, Y)
+
+# Pack X and Y into a single 3-dimensional array
+pos = numpy.empty(X.shape + (2,))
+pos[:, :, 0] = X
+pos[:, :, 1] = Y
+
 
 
 class PFLocaliser(PFLocaliserBase):
@@ -56,14 +71,14 @@ class PFLocaliser(PFLocaliserBase):
 
 
     # gaussian function for the 2D Kalman Filter
-    def gauss_f(mu, sigma, x):
-        dist_from_mean = (x-mu) #distance from the mean
-        dist_from_mean_transposed = numpy.transpose(dist_from_mean)
+    #def gauss_f(mu, sigma, x):
+        #dist_from_mean = (x-mu) #distance from the mean
+        #dist_from_mean_transposed = numpy.transpose(dist_from_mean)
         ''' gauss_f takes in a mean and squared variance, and an input x
         and returns the gaussian value.'''
-        coefficient = 1.0 / (2.0 * math.pi *sqrt(abs(sigma)))
-        exponential = exp(-0.5 * dist_from_mean_transposed*sigma_inv*dist_from_mean)
-        return coefficient * exponential
+        #coefficient = 1.0 / (2.0 * math.pi *sqrt(abs(sigma)))
+        #exponential = exp(-0.5 * dist_from_mean_transposed*sigma_inv*dist_from_mean)
+        #return coefficient * exponential
 
 
     # the update function
@@ -81,7 +96,7 @@ class PFLocaliser(PFLocaliserBase):
         # Calculate the new parameters
         #new_mean = mean1 + mean2
         #new_sigma = sigma1 + sigma2
-    
+
         #return [new_mean, new_sigma]
 
     def initialise_particle_cloud(self, initialpose):
@@ -125,7 +140,7 @@ class PFLocaliser(PFLocaliserBase):
         #iterator = 0
 
         """
-        Set the particles to a random position and orientation around the initial pose
+    Set the particles to a random position and orientation around the initial pose
         """
         #particleNumber = 10**2 # 10**3 # 10**4 # 10**5 experiment with different ammounts of particles
         self.particlecloud.poses = []
@@ -152,56 +167,95 @@ class PFLocaliser(PFLocaliserBase):
         return self.particlecloud
 
     def create_C(self, predictedMut, predictedLaserScans):
-        Ct = numpy.zeros((2, 20))
+        Ct = numpy.zeros((20, 2))
         #Ct = predictedLaserScans * numpy.linalg.inv(predictedMut)
+
         iterator = 0
         for j in predictedLaserScans[0][:]:
-            ctx = j / predictedMut[0][1]
-            cty = j / predictedMut[0][1]
-            Ct[0][iterator] = ctx
-            Ct[1][iterator] = cty
+            ctx = j / predictedMut[0][0]
+            cty = j / predictedMut[1][0]
+            Ct[iterator][0] = ctx
+            Ct[iterator][1] = cty
             iterator += 1
         return Ct
 
     def createPredictedScan(self, predictedMut):
-        predictedLaserScans = numpy.zeros((1, len(self.sensor_model.reading_points)))
+        predictedLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
         iter = 0
         for i, obs_bearing in self.sensor_model.reading_points:
             # ----- Predict the scan according to the map
-            map_range = self.sensor_model.calc_map_range(predictedMut[0][0], predictedMut[0][1],
+            map_range = self.sensor_model.calc_map_range(predictedMut[0][0], predictedMut[1][0],
                                      getHeading(self.particlecloud.poses[0].orientation) + obs_bearing)
-            predictedLaserScans[0][iter] = map_range
+            predictedLaserScans[iter][0] = map_range
             iter += 1
         return predictedLaserScans
 
-    def createActualScan(self, scan):
-        actualLaserScans = numpy.zeros((1, len(scan)))
+    def createActualScan(self, scan, scanMax):
+        actualLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
         iter = 0
         for i in self.sensor_model.reading_points:
-            actualLaserScans[0][iter] = scan[i[0]]
-            iter += 1
+            if math.isnan(scan[i[0]]):
+                actualLaserScans[iter][0] = scanMax
+            else:
+                actualLaserScans[iter][0] = scan[i[0]]
+                iter += 1
         return actualLaserScans
 
+    def multivariate_gaussian(mu, Sigma):
+        """Return the multivariate Gaussian distribution on array pos.
+
+        pos is an array constructed by packing the meshed arrays of variables
+        x_1, x_2, x_3, ..., x_k into its _last_ dimension.
+
+        """
+
+        n = mu.shape[0]
+        Sigma_det = numpy.linalg.det(Sigma)
+        Sigma_inv = numpy.linalg.inv(Sigma)
+        N = numpy.sqrt((2*numpy.pi)**n * Sigma_det)
+        # This einsum call calculates (x-mu)T.Sigma-1.(x-mu) in a vectorized
+        # way across all the input variables.
+        fac = numpy.einsum('...k,kl,...l->...', pos-mu, Sigma_inv, pos-mu)
+
+        return numpy.exp(-fac / 2) / N
+
     def update_particle_cloud(self, scan):
-        predictedMut = numpy.zeros((1,2))
+        predictedMut = numpy.zeros((2,1))
         predictedMut[0][0] = self.particlecloud.poses[0].position.x
-        predictedMut[0][1] = self.particlecloud.poses[0].position.y
+        predictedMut[1][0] = self.particlecloud.poses[0].position.y
         predictedScan = self.createPredictedScan(predictedMut)
 
-        Rt = [[10,0],[0,10]]
-
+        Rt = numpy.array([[10,0],[0,10]])
+        Qt = numpy.random.rand(20,20)*10
         predictedSigma = sigma + Rt
 
         Ct = self.create_C(predictedMut,predictedScan)
-        zt = self.createActualScan(scan.ranges)
-        Kt = predictedSigma * np.transpose(Ct) * numpy.linalg.inv((Ct*predictedSigma*np.transpose(Ct) + noise))
+        zt = self.createActualScan(scan.ranges, scan.range_max)
+        #a = numpy.linalg.inv((numpy.dot(numpy.dot(Ct,predictedSigma),numpy.transpose(Ct)))+Qt)
+        #print(a.shape)
+        Kt = numpy.dot(numpy.dot(predictedSigma, numpy.transpose(Ct)), numpy.linalg.inv((numpy.dot(numpy.dot(Ct,predictedSigma),numpy.transpose(Ct)))+Qt))
+        I = numpy.identity(2)
+        actualMut = predictedMut + numpy.dot(Kt,(zt - predictedScan))
+        actualSigma = numpy.dot((I-numpy.dot(Kt,Ct)),predictedSigma)
 
-        s = (Kt*Ct).shape           # gives for example (48, 27)
-        I = numpy.identity(s)       # identity matrix with size of the matrix (Kt*Ct)
+        ##Plot the gaussian distribution
+        # The distribution on the variables X, Y packed into pos.
+        Z = self.multivariate_gaussian(actualMut, actualSigma)
 
-        actualMut = predictedMut + Kt*(zt - predictedScan)
-        actualSigma = (I-Kt*Ct)*predictedSigma
+        # Create a surface plot and projected filled contour plot under it.
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.plot_surface(X, Y, Z, rstride=3, cstride=3, linewidth=1, antialiased=True,
+                       cmap=cm.viridis)
 
+        cset = ax.contourf(X, Y, Z, zdir='z', offset=-0.15, cmap=cm.viridis)
+
+        # Adjust the limits, ticks and view angle
+        ax.set_zlim(-0.15,0.2)
+        ax.set_zticks(numpy.linspace(0,0.2,5))
+        ax.view_init(27, -21)
+
+        plt.show()
 
     def estimate_pose(self):
         """

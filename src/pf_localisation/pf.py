@@ -111,12 +111,13 @@ class PFLocaliser(PFLocaliserBase):
 
         mu_x = initialpose.pose.pose.position.x
         mu_y = initialpose.pose.pose.position.y
-	    particle.position.x = mu_x
+	particle.position.x = mu_x
         particle.position.y = mu_y
         particle.position.z = initialpose.pose.pose.position.z
-	    particle.orientation = initialpose.pose.pose.orientation
-	    self.particlecloud.poses.append(particle)
-	    print(self.particlecloud.poses)
+	particle.orientation = initialpose.pose.pose.orientation
+	self.particlecloud.poses.append(particle)
+	print(self.particlecloud.poses)
+	
         return self.particlecloud
 
     def create_C(self, predictedMut, predictedLaserScans):
@@ -144,16 +145,16 @@ class PFLocaliser(PFLocaliserBase):
                 map_range = self.sensor_model.scan_range_max
 
             predictedLaserScans[iter][0] = map_range
-   	        iter += 1
+   	    iter += 1
         return predictedLaserScans
 
     def createActualScan(self, scan, scanMax):
         actualLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
-	    iter = 0
+	iter = 0
         for i in self.sensor_model.reading_points:
             if math.isnan(scan[i[0]]):
                 actualLaserScans[iter][0] = scanMax
-   	        else:
+   	    else:
                 actualLaserScans[iter][0] = scan[i[0]]
    	    iter += 1
         return actualLaserScans
@@ -178,10 +179,10 @@ class PFLocaliser(PFLocaliserBase):
 
     def update_particle_cloud(self, scan):
 
-	    global actualSigma
-	    Rt = numpy.cov(numpy.random.rand(2,2))
-	    Qt = numpy.cov(numpy.random.rand(20,20))
-	    predictedMut = numpy.zeros((2,1))
+	global actualSigma
+	Rt = numpy.cov(numpy.random.rand(2,2))
+	Qt = numpy.cov(numpy.random.rand(20,20))
+	predictedMut = numpy.zeros((2,1))
         predictedMut[0][0] = self.particlecloud.poses[0].position.x
         predictedMut[1][0] = self.particlecloud.poses[0].position.y
         predictedScan = self.createPredictedScan(predictedMut)
@@ -197,7 +198,7 @@ class PFLocaliser(PFLocaliserBase):
         actualSigma = numpy.dot((I-numpy.dot(Kt,Ct)),predictedSigma)
 
         self.particlecloud.poses[0].position.x = actualMut[0][0]
-	    self.particlecloud.poses[0].position.y = actualMut[1][0]
+	self.particlecloud.poses[0].position.y = actualMut[1][0]
 
         print(actualMut-predictedMut)
 

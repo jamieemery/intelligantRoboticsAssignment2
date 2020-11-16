@@ -135,7 +135,7 @@ class PFLocaliser(PFLocaliserBase):
 
     def createPredictedScan(self, predictedMut):
         predictedLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
-	    iter = 0
+	iter = 0
         for i, obs_bearing in self.sensor_model.reading_points:
             # ----- Predict the scan according to the map
             map_range = self.sensor_model.calc_map_range(predictedMut[0][0], predictedMut[1][0],

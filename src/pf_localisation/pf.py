@@ -111,12 +111,12 @@ class PFLocaliser(PFLocaliserBase):
 
         mu_x = initialpose.pose.pose.position.x
         mu_y = initialpose.pose.pose.position.y
-	    particle.position.x = mu_x
+	particle.position.x = mu_x
         particle.position.y = mu_y
         particle.position.z = initialpose.pose.pose.position.z
-	    particle.orientation = initialpose.pose.pose.orientation
-	    self.particlecloud.poses.append(particle)
-	    print(self.particlecloud.poses)
+	particle.orientation = initialpose.pose.pose.orientation
+	self.particlecloud.poses.append(particle)
+	print(self.particlecloud.poses)
 	
         return self.particlecloud
 
@@ -148,7 +148,7 @@ class PFLocaliser(PFLocaliserBase):
 
     def createPredictedScan(self, predictedMut):
         predictedLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
-	    iter = 0
+	iter = 0
         for i, obs_bearing in self.sensor_model.reading_points:
             # ----- Predict the scan according to the map
             map_range = self.sensor_model.calc_map_range(predictedMut[0][0], predictedMut[1][0],
@@ -163,13 +163,13 @@ class PFLocaliser(PFLocaliserBase):
 
     def createActualScan(self, scan, scanMax):
         actualLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
-	    iter = 0
+	iter = 0
         for i in self.sensor_model.reading_points:
             if math.isnan(scan[i[0]]):
                 actualLaserScans[iter][0] = scanMax
-   	        else:
-                ctualLaserScans[iter][0] = scan[i[0]]
-   	            iter += 1
+   	    else:
+                actualLaserScans[iter][0] = scan[i[0]]
+   	        iter += 1
         return actualLaserScans
 
     def multivariate_gaussian(self, mu, Sigma):

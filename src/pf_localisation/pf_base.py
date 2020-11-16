@@ -264,7 +264,7 @@ class PFLocaliserBase(object):
                 p.position.y = (p.position.y + travel_y +
                                 (rnd * travel_y * self.ODOM_DRIFT_NOISE))
                 # measurements for mu and motions, U
-                #measurements = [5., 6., 7., 9., 10.]
+                #measurements = self.scan.ranges
                 #motions = [[travel_x],[travel_y]]
 
                 # initial parameters
@@ -288,6 +288,21 @@ class PFLocaliserBase(object):
             # print the final, resultant mu, sig
             #print('\n')
             #print('Final result: [{}, {}]'.format(mu, sig))
+            ## Print out and display the final, resulting Gaussian 
+            # set the parameters equal to the output of the Kalman filter result
+            #mu = mu
+            #sigma2 = sig
+
+            # define a range of x values
+            #x_axis = np.arange(-20, 20, 0.1)
+
+            # create a corresponding list of gaussian values
+            #g = []
+            #for x in x_axis:
+            #    g.append(f(mu, sigma2, x))
+
+            # plot the result 
+            #plt.plot(x_axis, g)
     
         return time.time() - t
 

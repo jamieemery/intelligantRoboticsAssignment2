@@ -111,18 +111,19 @@ class PFLocaliser(PFLocaliserBase):
 
         mu_x = initialpose.pose.pose.position.x
         mu_y = initialpose.pose.pose.position.y
-	particle.position.x = mu_x
+	    particle.position.x = mu_x
         particle.position.y = mu_y
         particle.position.z = initialpose.pose.pose.position.z
-	particle.orientation = initialpose.pose.pose.orientation
-	self.particlecloud.poses.append(particle)
-	print(self.particlecloud.poses)
+	    particle.orientation = initialpose.pose.pose.orientation
+	    self.particlecloud.poses.append(particle)
+	    print(self.particlecloud.poses)
 	
         return self.particlecloud
 
+    '''
     def create_C(self, predictedMut, predictedLaserScans):
         Ct = numpy.zeros((20, 2))
-        #Ct = predictedLaserScans * numpy.linalg.inv(predictedMut)
+        #Ct = predictedLaserScans * numpy.linalg.inv(predictedMut) 
 
         iterator = 0
         for j in predictedLaserScans:
@@ -132,10 +133,22 @@ class PFLocaliser(PFLocaliserBase):
             Ct[iterator][1] = cty
             iterator += 1
         return Ct
+    '''
+
+    def create_C(self, predictedMut, predictedLaserScans):
+        Ct = numpy.zeros((len(predictedLaserScans), 2))
+        # predictedMut is (2,20) -> predictedLaserScans is (20,1)(1,20)
+        row = 0
+        for j in predictedLaserScans:
+            Ct[row][0] = (j * (cos(predictedMut[2]))**2)/predictedMut[0]
+            Ct[row][1] = (j * (sin(predictedMut[2]))**2)/predictedMut[0]
+            row += 1
+        return Ct
+
 
     def createPredictedScan(self, predictedMut):
         predictedLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
-	iter = 0
+	    iter = 0
         for i, obs_bearing in self.sensor_model.reading_points:
             # ----- Predict the scan according to the map
             map_range = self.sensor_model.calc_map_range(predictedMut[0][0], predictedMut[1][0],
@@ -150,13 +163,13 @@ class PFLocaliser(PFLocaliserBase):
 
     def createActualScan(self, scan, scanMax):
         actualLaserScans = numpy.zeros((len(self.sensor_model.reading_points),1))
-	iter = 0
+	    iter = 0
         for i in self.sensor_model.reading_points:
             if math.isnan(scan[i[0]]):
                 actualLaserScans[iter][0] = scanMax
-   	    else:
-                actualLaserScans[iter][0] = scan[i[0]]
-   	    iter += 1
+   	        else:
+                ctualLaserScans[iter][0] = scan[i[0]]
+   	            iter += 1
         return actualLaserScans
 
     def multivariate_gaussian(self, mu, Sigma):
@@ -179,26 +192,26 @@ class PFLocaliser(PFLocaliserBase):
 
     def update_particle_cloud(self, scan):
 
-	global actualSigma
-	Rt = numpy.cov(numpy.random.rand(2,2))
-	Qt = numpy.cov(numpy.random.rand(20,20))
-	predictedMut = numpy.zeros((2,1))
+        global actualSigma
+        Rt = numpy.cov(numpy.random.rand(2,2))
+        Qt = numpy.cov(numpy.random.rand(20,20))
+        predictedMut = numpy.zeros((2,1))
         predictedMut[0][0] = self.particlecloud.poses[0].position.x
         predictedMut[1][0] = self.particlecloud.poses[0].position.y
         predictedScan = self.createPredictedScan(predictedMut)
         predictedSigma = actualSigma + Rt
 
         Ct = self.create_C(predictedMut,predictedScan)
-	#print(Ct)
+        #print(Ct)
         zt = self.createActualScan(scan.ranges, scan.range_max)
         Kt = numpy.dot(numpy.dot(predictedSigma, numpy.transpose(Ct)), numpy.linalg.inv(numpy.dot(numpy.dot(Ct,predictedSigma),numpy.transpose(Ct))+Qt))
         I = numpy.identity(2)
-	#print(Kt)
+        #print(Kt)
         actualMut = predictedMut + numpy.dot(Kt,(zt - numpy.dot(Ct,predictedMut)))
         actualSigma = numpy.dot((I-numpy.dot(Kt,Ct)),predictedSigma)
 
         self.particlecloud.poses[0].position.x = actualMut[0][0]
-	self.particlecloud.poses[0].position.y = actualMut[1][0]
+        self.particlecloud.poses[0].position.y = actualMut[1][0]
 
         print(actualMut-predictedMut)
 

@@ -41,9 +41,9 @@ class PFLocaliserBase(object):
         self._update_lock =  Lock()
         
         # ----- Parameters
-        self.ODOM_ROTATION_NOISE = 0 		# Odometry model rotation noise
-        self.ODOM_TRANSLATION_NOISE = 0 	# Odometry x axis (forward) noise
-        self.ODOM_DRIFT_NOISE = 0 			# Odometry y axis (side-side) noise
+        self.ODOM_ROTATION_NOISE = 0.02 	# Odometry model rotation noise
+        self.ODOM_TRANSLATION_NOISE = 0.02 	# Odometry x axis (forward) noise
+        self.ODOM_DRIFT_NOISE = 0.02 		# Odometry y axis (side-side) noise
         self.NUMBER_PREDICTED_READINGS = 20 # Number of readings to predict
     
         # ----- Set 'previous' translation to origin
@@ -207,9 +207,7 @@ class PFLocaliserBase(object):
             y = odom.pose.pose.position.y
             new_heading = getHeading(odom.pose.pose.orientation)
             
-            mu_x = x
-            mu_y = y
-            mu = [[mu_x], [mu_y]]
+            
             # ----- On our first run, the incoming translations may not be equal to 
             # ----- zero, so set them appropriately
             if not self.odom_initialised:
@@ -263,46 +261,7 @@ class PFLocaliserBase(object):
                                 (rnd * travel_x * self.ODOM_TRANSLATION_NOISE))
                 p.position.y = (p.position.y + travel_y +
                                 (rnd * travel_y * self.ODOM_DRIFT_NOISE))
-                # measurements for mu and motions, U
-                #measurements = self.scan.ranges
-                #motions = [[travel_x],[travel_y]]
-
-                # initial parameters
-                #measurement_sig = 4. # measurement error
-                #motion_sig = 2. # motion error
-                #mu = 0. # initial estimate for the location
-                #sig = 10000. # certainty of the localisation
-
-
-            # Loop through all measurements/motions
-            # this code assumes measurements and motions have the same length
-            # so their updates can be performed in pairs
-            #for n in range(len(measurements)):
-                # measurement update, with uncertainty
-                #mu, sig = update(mu, sig, measurements[n], measurement_sig)
-                #print('Update: [{}, {}]'.format(mu, sig))
-                # motion update, with uncertainty
-                #mu, sig = predict(mu, sig, motions[n], motion_sig)
-                #print('Predict: [{}, {}]'.format(mu, sig))
-
-            # print the final, resultant mu, sig
-            #print('\n')
-            #print('Final result: [{}, {}]'.format(mu, sig))
-            ## Print out and display the final, resulting Gaussian 
-            # set the parameters equal to the output of the Kalman filter result
-            #mu = mu
-            #sigma2 = sig
-
-            # define a range of x values
-            #x_axis = np.arange(-20, 20, 0.1)
-
-            # create a corresponding list of gaussian values
-            #g = []
-            #for x in x_axis:
-            #    g.append(f(mu, sigma2, x))
-
-            # plot the result 
-            #plt.plot(x_axis, g)
+               
     
         return time.time() - t
 
